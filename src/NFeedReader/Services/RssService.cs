@@ -1,8 +1,8 @@
-﻿using NFeedReader.Data;
+﻿
+using NFeedReader.Data;
 using NFeedReader.Models;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -14,46 +14,48 @@ namespace NFeedReader.Services
     {
         private readonly FeedRepository _feedRepository;
         private readonly RssParser _rssParser;
+        private readonly RssReader _rssReader;
 
-        public RssService(FeedRepository feedRepository, RssParser parser)
+        public RssService(FeedRepository feedRepository, RssReader rssReader,  RssParser parser)
         {
             _feedRepository = feedRepository;
             _rssParser = parser;
+            _rssReader = rssReader;
         }
 
         public async Task<List<RssItem>> GetAllItemsAsync(int? limit = null)
         {
             List<RssItem> items = new List<RssItem>();
             var tasks = new List<Task<List<RssItem>>>();
-            foreach(var feed in await _feedRepository.GetFeedsAsync())
+            foreach (var feed in await _feedRepository.GetFeedsAsync())
             {
-                var task = GetRssItemsAsync(feed, limit);         
+                var task = GetRssItemsAsync(feed, limit);
                 tasks.Add(task);
             }
-            await Task.WhenAll(tasks);            
-            foreach(var task in tasks)
+            await Task.WhenAll(tasks);
+            foreach (var task in tasks)
             {
                 items.AddRange(task.Result);
             }
-            return items;
+            return items
+                .Where(i => i.PublicationDate >= DateTime.Now.AddDays(-1))
+                .OrderByDescending(i => i.PublicationDate)
+                .Distinct()
+                .ToList();
         }
 
         public Task<List<RssItem>> GetRssItemsAsync(Feed feed, int? limit = null)
         {
-            var channelNode = _rssParser.ParseChannel(Open(feed.Url));
-            return Task.FromResult(_rssParser.ParseItems(channelNode, limit));
-        }
-
-        public XmlNode Open(string uri)
-        {
-            var client = new WebClient();
-            using (var reader = new XmlTextReader(client.OpenRead(uri)))
+            try
             {
-                XmlDocument document = new XmlDocument();
-                document.Load(reader);
-                return document;
+                var root = _rssReader.Open(feed.Url);
+                var channelNode = _rssParser.ParseChannel(root);
+                return Task.FromResult(_rssParser.ParseItems(channelNode, feed: feed, limit: limit));
+            }
+            catch (WebException ex)
+            {
+                return Task.FromResult(new List<RssItem>());
             }
         }
-
     }
 }

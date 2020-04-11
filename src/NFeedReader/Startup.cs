@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using ElectronNET.API;
+using ElectronNET.API.Entities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Hosting;
@@ -36,6 +38,8 @@ namespace NFeedReader
             services.AddScoped<FeedRepository>();
             services.AddScoped<RssService>();
             services.AddScoped<RssParser>();
+            services.AddScoped<RssReader>();
+            services.AddScoped<FeedService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -59,6 +63,21 @@ namespace NFeedReader
                 endpoints.MapBlazorHub();
                 endpoints.MapFallbackToPage("/_Host");
             });
+
+            Task.Run(async () => await Electron.WindowManager.CreateWindowAsync());
+        }
+
+        public async void ElectronBootstrap()
+        {
+            var browserWindow = await Electron.WindowManager.CreateWindowAsync(new BrowserWindowOptions
+            {
+                Width = 1152,
+                Height = 864,
+                Show = false
+            });
+
+            browserWindow.OnReadyToShow += () => browserWindow.Show();
+            browserWindow.SetTitle("NFeedReader");
         }
     }
 }
