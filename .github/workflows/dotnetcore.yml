@@ -17,10 +17,10 @@ jobs:
         with:
           dotnet-version: 3.1.101
       - name: Install ElectronNet
-        run: dotnet tool install ElectronNET.CLI     
+        run: dotnet tool install ElectronNET.CLI -g   
       - name: Install dependencies
         run: dotnet restore
       - name: Build
-        run: electronize build /target win
+        run: electronize build /target linux
       - name: Test
         run: dotnet test --no-restore --verbosity normal
